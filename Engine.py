@@ -102,49 +102,52 @@ class AlphaZeroEngine:
         return fr * self.ACTION_PLANES + plane  # 0..4671
 
 
-    def decode_move(self, idx: int) -> chess.Move:
-        fr = idx // self.ACTION_PLANES
+    def decode_move(self, idx: int, board: chess.Board) -> chess.Move:
+        fr    = idx // self.ACTION_PLANES
         plane = idx % self.ACTION_PLANES
 
-        rank_fr = chess.square_rank(fr)
-        file_fr = chess.square_file(fr)
+        rank_fr  = chess.square_rank(fr)
+        file_fr  = chess.square_file(fr)
 
-        # 1) Queen-like moves (0..55)
         if plane < 56:
-            d = plane // 7
-            step = (plane % 7) + 1
+            d     = plane // 7
+            step  = (plane % 7) + 1            
             dr, dc = self.direction_table[d]
+
             rank_to = rank_fr + dr * step
             file_to = file_fr + dc * step
-            to = chess.square(file_to, rank_to)
+            to      = chess.square(file_to, rank_to)
+
+            if step == 1 and (rank_to in (0, 7)):
+                is_pawn = (board is None or
+                        board.piece_at(fr) and
+                        board.piece_at(fr).piece_type == chess.PAWN)
+                if is_pawn:
+                    return chess.Move(fr, to, promotion=chess.QUEEN)
+
             return chess.Move(fr, to)
 
-        # 2) Knight jumps (56..63)
-        if plane < 56 + 8:
-            k = plane - 56
-            dr, dc = self.knight_moves[k]
+        if plane < 64:
+            k       = plane - 56
+            dr, dc  = self.knight_moves[k]
             rank_to = rank_fr + dr
             file_to = file_fr + dc
-            to = chess.square(file_to, rank_to)
+            to      = chess.square(file_to, rank_to)
             return chess.Move(fr, to)
 
-        # 3) Under-promotions (64..72)
-        up_plane = plane - (56 + 8)
-        pidx = up_plane // 3
-        t = up_plane % 3
-        promo = self.promo_order[pidx]
+        up_plane = plane - 64
+        pidx     = up_plane // 3                  # 0: R, 1: B, 2: N
+        t        = up_plane % 3                   # 0: thẳng, 1: trái, 2: phải
+        promo    = self.promo_order[pidx]
 
         dc = 0 if t == 0 else (-1 if t == 1 else +1)
-        if rank_fr == 6:
-            # white pawn
-            dr = +1
-        else:
-            # black pawn
-            dr = -1
+        dr = +1 if rank_fr == 6 else -1           
         rank_to = rank_fr + dr
         file_to = file_fr + dc
-        to = chess.square(file_to, rank_to)
+        to      = chess.square(file_to, rank_to)
+
         return chess.Move(fr, to, promotion=promo)
+
     
     def predict(self, board: chess.Board) -> chess.Move:
         x = self.board_to_planes(board)               
@@ -165,4 +168,4 @@ class AlphaZeroEngine:
 
         best_idx = int(masked.argmax().item())
 
-        return self.decode_move(best_idx)
+        return self.decode_move(best_idx, board)
