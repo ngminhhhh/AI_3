@@ -117,6 +117,11 @@ class AlphaZeroEngine:
             rank_to = rank_fr + dr * step
             file_to = file_fr + dc * step
             to = chess.square(file_to, rank_to)
+
+            # >>> Adding: if Pawn reaches the last row -> Promote to Queen
+            if step == 1 and (rank_to == 0 or rank_to == 7):
+                return chess.Move(fr, to, promotion=chess.QUEEN)
+            
             return chess.Move(fr, to)
 
         # 2) Knight jumps (56..63)
